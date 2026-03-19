@@ -17,7 +17,7 @@
         line-height: 1.2;
         height: 100vh;
         overflow-y: auto; /* Permite scroll si el texto es muy largo */
-        white-space: pre-wrap; /* Respeta los saltos de línea y espacios */
+        /* white-space: pre-wrap; Respeta los saltos de línea y espacios */
       }
       /* #text-display {
         transform: scaleX(-1) rotate(180deg);
@@ -28,19 +28,28 @@
         font-size: 50px;
         line-height: 1.5;
       } */
+      #text-title {
+        /* display: none; */
+      }
     </style>
   </head>
   <body>
-    <div id="text-display"></div>
+    <h5 id="text-title">Titulo</h5>
+    <div id="text-display">Contenido</div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
       const socket = io();
       const textDisplay = document.getElementById("text-display");
+      const textTitle = document.getElementById("text-title");
 
       socket.on("text-update", (text) => {
-        textDisplay.innerText = text;
+        textDisplay.innerText = `${text}\n\n\n`;
         console.log("Texto actualizado.");
+      });
+      socket.on("title-update", (text) => {
+        textTitle.innerText = text;
+        console.log("Titulo actualizado.");
       });
     </script>
   </body>

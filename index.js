@@ -22,11 +22,12 @@ let currentImage = "/placeholder.png"; // Imagen por defecto
 let prompts = [
   {
     title: "Inicio",
-    text: "Bienvenido al prompter. Actualiza el texto desde el panel de administración.",
+    text: "En nuestro canal, 30 Minutitos de Fama y Fútbol, nos dedicamos principalmente a crear recopilaciones de los momentos más destacados, curiosos y extremos del fútbol profesional. Nos enfocamos en entretener a nuestra audiencia mediante videos que agrupan jugadas específicas bajo temáticas llamativas.",
   },
 ];
 let currentPromptIndex = 0;
 let liveText = prompts[0].text; // Variable para controlar el texto que ve el público
+let liveTitle = prompts[0].title;
 
 // --- Configuración de Multer para la subida de archivos ---
 const storage = multer.diskStorage({
@@ -103,6 +104,7 @@ io.on("connection", (socket) => {
   // Enviar estado actual al nuevo cliente
   socket.emit("image-update", currentImage);
   socket.emit("text-update", liveText); // Enviar el texto 'en vivo', no el que se está editando
+  socket.emit("title-update", liveTitle);
   socket.emit("prompt-list-update", {
     prompts,
     currentPromptIndex,
@@ -192,7 +194,9 @@ io.on("connection", (socket) => {
   socket.on("send-prompt", () => {
     if (currentPromptIndex >= 0 && currentPromptIndex < prompts.length) {
       liveText = prompts[currentPromptIndex].text;
+      liveTitle = prompts[currentPromptIndex].title;
       io.emit("text-update", liveText);
+      io.emit("title-update", liveTitle);
       console.log(
         `Texto enviado al prompter (Prompt ${currentPromptIndex + 1})`,
       );
