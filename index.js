@@ -19,10 +19,14 @@ app.use("/uploads", express.static(path.join(__dirname, "public/uploads"))); // 
 
 // --- Almacenamiento en memoria (para simplicidad) ---
 let currentImage = "/placeholder.png"; // Imagen por defecto
-let textPages = [
-  "Bienvenido al prompter. Actualiza el texto desde el panel de administración.",
+let prompts = [
+  {
+    title: "Inicio",
+    text: "Bienvenido al prompter. Actualiza el texto desde el panel de administración.",
+  },
 ];
-let currentPageIndex = 0;
+let currentPromptIndex = 0;
+let liveText = prompts[0].text; // Variable para controlar el texto que ve el público
 
 // --- Configuración de Multer para la subida de archivos ---
 const storage = multer.diskStorage({
@@ -55,8 +59,8 @@ app.get("/admin", (req, res) => {
       ? files.filter((file) => /\.(png|jpg|jpeg|gif|webp)$/i.test(file))
       : [];
     res.render("admin", {
-      pages: textPages,
-      currentPage: currentPageIndex,
+      prompts,
+      currentPromptIndex,
       images,
       currentImage,
     });
@@ -98,10 +102,10 @@ io.on("connection", (socket) => {
 
   // Enviar estado actual al nuevo cliente
   socket.emit("image-update", currentImage);
-  socket.emit("text-update", textPages[currentPageIndex]); // Para clientes prompter
-  socket.emit("pagination-update", {
-    pages: textPages,
-    currentPage: currentPageIndex,
+  socket.emit("text-update", liveText); // Enviar el texto 'en vivo', no el que se está editando
+  socket.emit("prompt-list-update", {
+    prompts,
+    currentPromptIndex,
   }); // Para clientes admin
 
   // Escuchar selección de imagen desde el admin (Carrusel)
@@ -124,70 +128,74 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Escuchar actualización de texto de una página específica
-  socket.on("update-page-text", ({ pageIndex, text }) => {
-    if (pageIndex >= 0 && pageIndex < textPages.length) {
-      textPages[pageIndex] = text;
-      console.log(`Texto de la página ${pageIndex + 1} actualizado.`);
-      // Si la página actualizada es la activa, notificar a los prompters
-      if (pageIndex === currentPageIndex) {
-        io.emit("text-update", textPages[currentPageIndex]);
-      }
+  // Escuchar actualización de un prompt (título y texto)
+  socket.on("update-prompt", ({ index, title, text }) => {
+    if (index >= 0 && index < prompts.length) {
+      prompts[index] = { title, text };
+      console.log(`Prompt ${index + 1} actualizado.`);
       // Notificar a los admins para que tengan el contenido más reciente (para sincronizar otros admins)
-      io.emit("pagination-update", {
-        pages: textPages,
-        currentPage: currentPageIndex,
+      io.emit("prompt-list-update", {
+        prompts,
+        currentPromptIndex,
       });
     }
   });
 
-  // Escuchar para crear una nueva pestaña/página
-  socket.on("create-tab", () => {
-    textPages.push("Nueva página.");
-    console.log(`Pestaña creada. Ahora hay ${textPages.length} páginas.`);
+  // Escuchar para crear un nuevo prompt
+  socket.on("create-prompt", () => {
+    prompts.push({ title: "Nuevo Prompt", text: "Escribe aquí..." });
+    console.log(`Prompt creado. Ahora hay ${prompts.length} prompts.`);
     // Notificar a todos
-    io.emit("text-update", textPages[currentPageIndex]);
-    io.emit("pagination-update", {
-      pages: textPages,
-      currentPage: currentPageIndex,
+    io.emit("prompt-list-update", {
+      prompts,
+      currentPromptIndex,
     });
   });
 
-  // Escuchar para eliminar una pestaña/página
-  socket.on("delete-tab", (pageIndex) => {
-    // No permitir borrar la última página
-    if (textPages.length <= 1) {
-      console.log("No se puede eliminar la última página.");
+  // Escuchar para eliminar un prompt
+  socket.on("delete-prompt", (index) => {
+    // No permitir borrar el último prompt
+    if (prompts.length <= 1) {
+      console.log("No se puede eliminar el último prompt.");
       return;
     }
-    if (pageIndex >= 0 && pageIndex < textPages.length) {
-      textPages.splice(pageIndex, 1);
-      console.log(`Página ${pageIndex + 1} eliminada.`);
+    if (index >= 0 && index < prompts.length) {
+      prompts.splice(index, 1);
+      console.log(`Prompt ${index + 1} eliminado.`);
 
-      // Ajustar el índice de la página actual para que no quede fuera de rango
-      if (currentPageIndex >= pageIndex) {
-        currentPageIndex = Math.max(0, currentPageIndex - 1);
+      // Ajustar el índice del prompt actual para que no quede fuera de rango
+      if (currentPromptIndex >= index) {
+        currentPromptIndex = Math.max(0, currentPromptIndex - 1);
       }
 
       // Notificar a todos
-      io.emit("text-update", textPages[currentPageIndex]);
-      io.emit("pagination-update", {
-        pages: textPages,
-        currentPage: currentPageIndex,
+      io.emit("prompt-list-update", {
+        prompts,
+        currentPromptIndex,
       });
     }
   });
 
-  // Escuchar cambios de página desde el admin
-  socket.on("change-page", (pageIndex) => {
-    if (pageIndex >= 0 && pageIndex < textPages.length) {
-      currentPageIndex = pageIndex;
-      io.emit("text-update", textPages[currentPageIndex]); // Notificar al prompter
-      io.emit("pagination-update", {
-        pages: textPages,
-        currentPage: currentPageIndex,
+  // Escuchar selección de prompt desde el admin
+  socket.on("select-prompt", (index) => {
+    if (index >= 0 && index < prompts.length) {
+      currentPromptIndex = index;
+      io.emit("prompt-list-update", {
+        prompts,
+        currentPromptIndex,
       }); // Notificar a los admins
-      console.log(`Cambiado a la página: ${currentPageIndex + 1}`);
+      console.log(`Prompt seleccionado: ${currentPromptIndex + 1}`);
+    }
+  });
+
+  // Nuevo evento para enviar explícitamente el texto al prompter
+  socket.on("send-prompt", () => {
+    if (currentPromptIndex >= 0 && currentPromptIndex < prompts.length) {
+      liveText = prompts[currentPromptIndex].text;
+      io.emit("text-update", liveText);
+      console.log(
+        `Texto enviado al prompter (Prompt ${currentPromptIndex + 1})`,
+      );
     }
   });
 

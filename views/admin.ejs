@@ -176,21 +176,25 @@
       <div class="section">
         <h2>Control del Prompter</h2>
         <p>
-          Edita el contenido de la página seleccionada. Usa los botones para
-          añadir o eliminar páginas.
+          Selecciona un prompt de la lista para enviarlo al prompter. Edita el contenido y actualiza para guardar cambios.
         </p>
+        <input type="text" id="title-input" placeholder="Título del Prompt" style="width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
         <textarea
           id="text-input"
-          placeholder="El texto de la página actual aparecerá aquí..."
+          placeholder="El texto del prompt actual aparecerá aquí..."
         ></textarea>
-        <button id="update-text-btn">Actualizar Página</button>
+        
+        <div style="margin-top: 5px;">
+          <button id="update-text-btn">Actualizar Prompt</button>
+          <button id="send-prompt-btn" style="background-color: #28a745; margin-left: 10px;">Enviar al Prompter</button>
+        </div>
 
         <div class="controls-header">
-          <h3>Paginación</h3>
+          <h3>Lista de Prompts</h3>
           <div class="tab-actions">
-            <button id="add-tab-btn">Nueva Pestaña</button>
+            <button id="add-tab-btn">Nuevo Prompt</button>
             <button id="delete-tab-btn" class="delete-btn">
-              Eliminar Pestaña Actual
+              Eliminar Prompt Actual
             </button>
           </div>
         </div>
@@ -205,74 +209,96 @@
       const socket = io();
 
       const updateTextBtn = document.getElementById('update-text-btn');
+      const sendPromptBtn = document.getElementById('send-prompt-btn');
       const textInput = document.getElementById('text-input');
+      const titleInput = document.getElementById('title-input');
       const paginationControls = document.getElementById('pagination-controls');
       const addTabBtn = document.getElementById('add-tab-btn');
       const deleteTabBtn = document.getElementById('delete-tab-btn');
 
       // Estado local del cliente admin
-      let localPages = <%- JSON.stringify(pages) %>;
-      let localCurrentPageIndex = <%- currentPage %>;
+      let localPrompts = <%- JSON.stringify(prompts) %>;
+      let localCurrentPromptIndex = <%- currentPromptIndex %>;
       // Variable para rastrear la imagen actual en JS y redibujar el carrusel correctamente
       let currentImageFullPath = "<%= currentImage %>";
 
       // --- Emisores de Eventos ---
 
-      // Actualizar el texto de la página actual
+      // Función auxiliar para guardar el estado actual antes de navegar
+      function saveCurrentPrompt() {
+        if (localPrompts[localCurrentPromptIndex]) {
+          const text = textInput.value;
+          const title = titleInput.value;
+          socket.emit('update-prompt', { index: localCurrentPromptIndex, title, text });
+        }
+      }
+
+      // Actualizar el prompt actual (título y texto)
       updateTextBtn.addEventListener('click', () => {
-        const text = textInput.value;
-        socket.emit('update-page-text', { pageIndex: localCurrentPageIndex, text: text });
-        socket.emit('change-page', localCurrentPageIndex); // Hacer esta página la activa en vivo
+        saveCurrentPrompt();
       });
 
-      // Crear una nueva pestaña/página
+      // Enviar el prompt actual al prompter (Publicar)
+      sendPromptBtn.addEventListener('click', () => {
+        // Primero guardamos para asegurar que se envía lo que está escrito
+        saveCurrentPrompt(); 
+        socket.emit('send-prompt');
+      });
+
+      // Crear un nuevo prompt
       addTabBtn.addEventListener('click', () => {
-        socket.emit('create-tab');
+        saveCurrentPrompt();
+        socket.emit('create-prompt');
       });
 
-      // Eliminar la pestaña/página actual
+      // Eliminar el prompt actual
       deleteTabBtn.addEventListener('click', () => {
-        if (localPages.length > 1) {
-          if (confirm(`¿Seguro que quieres eliminar la Página ${localCurrentPageIndex + 1}?`)) {
-            socket.emit('delete-tab', localCurrentPageIndex);
+        if (localPrompts.length > 1) {
+          const promptTitle = localPrompts[localCurrentPromptIndex].title || 'este prompt';
+          if (confirm(`¿Seguro que quieres eliminar "${promptTitle}"?`)) {
+            socket.emit('delete-prompt', localCurrentPromptIndex);
           }
         } else {
-          alert('No se puede eliminar la última página.');
+          alert('No se puede eliminar el último prompt.');
         }
       });
 
       // --- Lógica de Renderizado y Receptores de Eventos ---
 
-      // Función para renderizar las pestañas
-      function renderPagination(pages, currentPage) {
+      // Función para renderizar la lista de prompts
+      function renderPromptsList(prompts, currentIndex) {
         paginationControls.innerHTML = '';
-        pages.forEach((_, index) => {
+        prompts.forEach((prompt, index) => {
           const pageBtn = document.createElement('button');
-          pageBtn.innerText = `Página ${index + 1}`;
+          pageBtn.innerText = prompt.title || `Prompt ${index + 1}`;
           pageBtn.classList.add('tab-btn');
-          if (index === currentPage) {
+          if (index === currentIndex) {
             pageBtn.classList.add('active');
           }
           pageBtn.addEventListener('click', () => {
-            localCurrentPageIndex = index;
-            renderPagination(localPages, localCurrentPageIndex);
-            textInput.value = localPages[localCurrentPageIndex] || '';
+            // Al hacer clic, enviamos la selección al servidor (igual que las imágenes)
+            socket.emit('select-prompt', index);
           });
           paginationControls.appendChild(pageBtn);
         });
       }
 
       // Escuchar la actualización principal desde el servidor
-      socket.on('pagination-update', ({ pages, currentPage }) => {
-        localPages = pages;
-        // Si la página que estábamos editando ya no existe (por borrado), ajustamos
-        if (localCurrentPageIndex >= localPages.length) {
-           localCurrentPageIndex = Math.max(0, localPages.length - 1);
+      socket.on('prompt-list-update', ({ prompts, currentPromptIndex }) => {
+        localPrompts = prompts;
+        localCurrentPromptIndex = currentPromptIndex;
+        
+        // Si el índice actual está fuera de rango, ajustamos
+        if (localCurrentPromptIndex >= localPrompts.length) {
+           localCurrentPromptIndex = Math.max(0, localPrompts.length - 1);
         }
-        // Nota: Ya no sobrescribimos localCurrentPageIndex con currentPage (la en vivo) automáticamente
-        renderPagination(localPages, localCurrentPageIndex);
-        // Actualizar el textarea con el contenido de la página actual
-        textInput.value = localPages[localCurrentPageIndex] || '';
+        
+        renderPromptsList(localPrompts, localCurrentPromptIndex);
+        // Actualizar los inputs con el contenido del prompt seleccionado
+        if (localPrompts[localCurrentPromptIndex]) {
+          titleInput.value = localPrompts[localCurrentPromptIndex].title || '';
+          textInput.value = localPrompts[localCurrentPromptIndex].text || '';
+        }
       });
 
       // --- Lógica del Carrusel ---
@@ -319,8 +345,11 @@
       });
 
       // Renderizado inicial al cargar la página
-      renderPagination(localPages, localCurrentPageIndex);
-      textInput.value = localPages[localCurrentPageIndex] || '';
+      renderPromptsList(localPrompts, localCurrentPromptIndex);
+      if (localPrompts[localCurrentPromptIndex]) {
+        titleInput.value = localPrompts[localCurrentPromptIndex].title || '';
+        textInput.value = localPrompts[localCurrentPromptIndex].text || '';
+      }
     </script>
   </body>
 </html>
