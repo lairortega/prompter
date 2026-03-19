@@ -1,0 +1,326 @@
+<!-- views/admin.ejs -->
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panel de Administración</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f4f4f4;
+      }
+      h1,
+      h2 {
+        color: #333;
+      }
+      .container {
+        max-width: 800px;
+        margin: auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .section {
+        margin-bottom: 30px;
+      }
+      textarea {
+        width: 100%;
+        height: 200px;
+        box-sizing: border-box;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      .carousel {
+        display: flex;
+        overflow-x: auto;
+        gap: 15px;
+        padding: 15px;
+        background: #eaeaea;
+        border-radius: 4px;
+        margin-top: 15px;
+        align-items: center;
+      }
+      .img-wrapper {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+      .carousel img {
+        height: 100px;
+        cursor: pointer;
+        border: 4px solid transparent;
+        border-radius: 4px;
+        transition: transform 0.2s;
+      }
+      .carousel img:hover { transform: scale(1.05); }
+      .carousel img.active { border-color: #007bff; }
+      .delete-img-btn {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #dc3545;
+        color: white;
+        border: 2px solid white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 14px;
+        padding: 0;
+        z-index: 10;
+      }
+      .add-img-btn {
+        height: 100px;
+        width: 100px;
+        min-width: 100px;
+        border: 2px dashed #999;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+        color: #666;
+        cursor: pointer;
+        background: rgba(255,255,255,0.5);
+      }
+      .add-img-btn:hover { background: rgba(255,255,255,0.8); border-color: #007bff; color: #007bff; }
+      .tab-container {
+        border-bottom: 1px solid #ccc;
+        display: flex;
+        margin-top: 15px;
+      }
+      .tab-btn {
+        background-color: transparent;
+        color: #333;
+        border: none;
+        padding: 10px 15px;
+        cursor: pointer;
+        margin-bottom: -1px;
+        border-bottom: 3px solid transparent;
+        margin-right: 5px;
+      }
+      .tab-btn:hover {
+        background-color: #f0f0f0;
+      }
+      .tab-btn.active {
+        border-bottom: 3px solid #007bff;
+        font-weight: bold;
+        color: #007bff;
+      }
+      .controls-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .tab-actions button {
+        background-color: #6c757d;
+        margin-left: 5px;
+      }
+      .tab-actions button.delete-btn {
+        background-color: #dc3545;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Panel de Administración</h1>
+
+      <div class="section">
+        <h2>Control de Imagen</h2>
+        <!-- Formulario oculto para subida -->
+        <form
+          id="upload-form"
+          action="/upload-image"
+          method="post"
+          enctype="multipart/form-data"
+          style="display: none;"
+        >
+          <input id="file-input" type="file" name="image" accept="image/*" onchange="document.getElementById('upload-form').submit()" required />
+        </form>
+
+        <h3>Galería de Imágenes</h3>
+        <div id="carousel-container" class="carousel">
+          <div class="add-img-btn" onclick="document.getElementById('file-input').click()" title="Agregar imagen">+</div>
+          <% if (locals.images && images.length > 0) { %>
+            <% images.forEach(function(img) { %>
+              <div class="img-wrapper">
+                <img src="/uploads/<%= img %>" class="<%= currentImage.endsWith(img) ? 'active' : '' %>" onclick="selectImage('<%= img %>')" alt="<%= img %>">
+                <button class="delete-img-btn" onclick="deleteImage('<%= img %>')" title="Borrar">×</button>
+              </div>
+            <% }); %>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Control del Prompter</h2>
+        <p>
+          Edita el contenido de la página seleccionada. Usa los botones para
+          añadir o eliminar páginas.
+        </p>
+        <textarea
+          id="text-input"
+          placeholder="El texto de la página actual aparecerá aquí..."
+        ></textarea>
+        <button id="update-text-btn">Actualizar Página</button>
+
+        <div class="controls-header">
+          <h3>Paginación</h3>
+          <div class="tab-actions">
+            <button id="add-tab-btn">Nueva Pestaña</button>
+            <button id="delete-tab-btn" class="delete-btn">
+              Eliminar Pestaña Actual
+            </button>
+          </div>
+        </div>
+        <div id="pagination-controls" class="tab-container">
+          <!-- Las pestañas de paginación se generarán aquí -->
+        </div>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+
+      const updateTextBtn = document.getElementById('update-text-btn');
+      const textInput = document.getElementById('text-input');
+      const paginationControls = document.getElementById('pagination-controls');
+      const addTabBtn = document.getElementById('add-tab-btn');
+      const deleteTabBtn = document.getElementById('delete-tab-btn');
+
+      // Estado local del cliente admin
+      let localPages = <%- JSON.stringify(pages) %>;
+      let localCurrentPageIndex = <%- currentPage %>;
+      // Variable para rastrear la imagen actual en JS y redibujar el carrusel correctamente
+      let currentImageFullPath = "<%= currentImage %>";
+
+      // --- Emisores de Eventos ---
+
+      // Actualizar el texto de la página actual
+      updateTextBtn.addEventListener('click', () => {
+        const text = textInput.value;
+        socket.emit('update-page-text', { pageIndex: localCurrentPageIndex, text: text });
+        socket.emit('change-page', localCurrentPageIndex); // Hacer esta página la activa en vivo
+      });
+
+      // Crear una nueva pestaña/página
+      addTabBtn.addEventListener('click', () => {
+        socket.emit('create-tab');
+      });
+
+      // Eliminar la pestaña/página actual
+      deleteTabBtn.addEventListener('click', () => {
+        if (localPages.length > 1) {
+          if (confirm(`¿Seguro que quieres eliminar la Página ${localCurrentPageIndex + 1}?`)) {
+            socket.emit('delete-tab', localCurrentPageIndex);
+          }
+        } else {
+          alert('No se puede eliminar la última página.');
+        }
+      });
+
+      // --- Lógica de Renderizado y Receptores de Eventos ---
+
+      // Función para renderizar las pestañas
+      function renderPagination(pages, currentPage) {
+        paginationControls.innerHTML = '';
+        pages.forEach((_, index) => {
+          const pageBtn = document.createElement('button');
+          pageBtn.innerText = `Página ${index + 1}`;
+          pageBtn.classList.add('tab-btn');
+          if (index === currentPage) {
+            pageBtn.classList.add('active');
+          }
+          pageBtn.addEventListener('click', () => {
+            localCurrentPageIndex = index;
+            renderPagination(localPages, localCurrentPageIndex);
+            textInput.value = localPages[localCurrentPageIndex] || '';
+          });
+          paginationControls.appendChild(pageBtn);
+        });
+      }
+
+      // Escuchar la actualización principal desde el servidor
+      socket.on('pagination-update', ({ pages, currentPage }) => {
+        localPages = pages;
+        // Si la página que estábamos editando ya no existe (por borrado), ajustamos
+        if (localCurrentPageIndex >= localPages.length) {
+           localCurrentPageIndex = Math.max(0, localPages.length - 1);
+        }
+        // Nota: Ya no sobrescribimos localCurrentPageIndex con currentPage (la en vivo) automáticamente
+        renderPagination(localPages, localCurrentPageIndex);
+        // Actualizar el textarea con el contenido de la página actual
+        textInput.value = localPages[localCurrentPageIndex] || '';
+      });
+
+      // --- Lógica del Carrusel ---
+      function selectImage(filename) {
+        socket.emit('select-image', filename);
+      }
+
+      function deleteImage(filename) {
+        if (confirm('¿Estás seguro de que deseas eliminar esta imagen?')) {
+          socket.emit('delete-image', filename);
+        }
+      }
+
+      // Actualizar la lista de imágenes (Carrusel) dinámicamente
+      socket.on('image-list-update', (images) => {
+        const carousel = document.getElementById('carousel-container');
+        let html = '<div class="add-img-btn" onclick="document.getElementById(\'file-input\').click()" title="Agregar imagen">+</div>';
+        
+        if (images && images.length > 0) {
+          images.forEach(img => {
+            const isActive = currentImageFullPath.endsWith(img) ? 'active' : '';
+            html += `
+              <div class="img-wrapper">
+                <img src="/uploads/${img}" class="${isActive}" onclick="selectImage('${img}')" alt="${img}">
+                <button class="delete-img-btn" onclick="deleteImage('${img}')" title="Borrar">×</button>
+              </div>
+            `;
+          });
+        }
+        carousel.innerHTML = html;
+      });
+
+      // Actualizar visualmente la imagen seleccionada en el carrusel
+      socket.on('image-update', (path) => {
+        currentImageFullPath = path;
+        document.querySelectorAll('.carousel img').forEach(img => {
+          // Comprueba si la ruta de la imagen termina con el nombre del archivo (alt)
+          if (path.endsWith(img.getAttribute('alt'))) {
+            img.classList.add('active');
+          } else {
+            img.classList.remove('active');
+          }
+        });
+      });
+
+      // Renderizado inicial al cargar la página
+      renderPagination(localPages, localCurrentPageIndex);
+      textInput.value = localPages[localCurrentPageIndex] || '';
+    </script>
+  </body>
+</html>

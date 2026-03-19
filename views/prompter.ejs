@@ -1,0 +1,47 @@
+<!-- views/prompter.ejs -->
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prompter</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 40px;
+        box-sizing: border-box;
+        background-color: #000;
+        color: #fff;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 5vw; /* Tamaño de fuente relativo al ancho del viewport */
+        line-height: 1.2;
+        height: 100vh;
+        overflow-y: auto; /* Permite scroll si el texto es muy largo */
+        white-space: pre-wrap; /* Respeta los saltos de línea y espacios */
+      }
+      /* #text-display {
+        transform: scaleX(-1) rotate(180deg);
+        text-align: left;
+        background-color: black;
+        color: #fff;
+        font-family: Arial, sans-serif;
+        font-size: 50px;
+        line-height: 1.5;
+      } */
+    </style>
+  </head>
+  <body>
+    <div id="text-display"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      const textDisplay = document.getElementById("text-display");
+
+      socket.on("text-update", (text) => {
+        textDisplay.innerText = text;
+        console.log("Texto actualizado.");
+      });
+    </script>
+  </body>
+</html>
