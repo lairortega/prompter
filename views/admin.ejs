@@ -146,6 +146,14 @@
     <div class="container">
       <h1>Panel de Administración</h1>
 
+      <div class="section" style="display:flex; gap: 24px; flex-wrap: wrap;">
+        <div style="flex: 1 1 240px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+          <h3 style="margin-top:0;">Clientes Conectados</h3>
+          <p style="margin: 8px 0;">Visor de Imagen: <strong id="image-count">0</strong></p>
+          <p style="margin: 8px 0;">Prompter: <strong id="prompter-count">0</strong></p>
+        </div>
+      </div>
+
       <div class="section">
         <h2>Control de Imagen</h2>
         <!-- Formulario oculto para subida -->
@@ -208,6 +216,8 @@
     <script>
       const socket = io();
 
+      const imageCountLabel = document.getElementById('image-count');
+      const prompterCountLabel = document.getElementById('prompter-count');
       const updateTextBtn = document.getElementById('update-text-btn');
       const sendPromptBtn = document.getElementById('send-prompt-btn');
       const textInput = document.getElementById('text-input');
@@ -215,6 +225,11 @@
       const paginationControls = document.getElementById('pagination-controls');
       const addTabBtn = document.getElementById('add-tab-btn');
       const deleteTabBtn = document.getElementById('delete-tab-btn');
+
+      function updateClientCounts(counts) {
+        imageCountLabel.innerText = counts.image || 0;
+        prompterCountLabel.innerText = counts.prompter || 0;
+      }
 
       // Estado local del cliente admin
       let localPrompts = <%- JSON.stringify(prompts) %>;
@@ -299,6 +314,10 @@
           titleInput.value = localPrompts[localCurrentPromptIndex].title || '';
           textInput.value = localPrompts[localCurrentPromptIndex].text || '';
         }
+      });
+
+      socket.on('client-counts-update', (counts) => {
+        updateClientCounts(counts);
       });
 
       // --- Lógica del Carrusel ---

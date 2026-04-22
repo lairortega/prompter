@@ -40,6 +40,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
       const socket = io();
+      socket.emit("register-route", "prompter");
       const textDisplay = document.getElementById("text-display");
       const textTitle = document.getElementById("text-title");
 

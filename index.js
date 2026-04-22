@@ -29,6 +29,16 @@ let currentPromptIndex = 0;
 let liveText = prompts[0].text; // Variable para controlar el texto que ve el público
 let liveTitle = prompts[0].title;
 
+const clientCounts = {
+  image: 0,
+  prompter: 0,
+};
+const socketRoutes = new Map();
+
+function broadcastClientCounts() {
+  io.emit("client-counts-update", clientCounts);
+}
+
 // --- Configuración de Multer para la subida de archivos ---
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -109,6 +119,20 @@ io.on("connection", (socket) => {
     prompts,
     currentPromptIndex,
   }); // Para clientes admin
+  socket.emit("client-counts-update", clientCounts);
+
+  socket.on("register-route", (route) => {
+    if (route === "image" || route === "prompter") {
+      const previousRoute = socketRoutes.get(socket.id);
+      if (previousRoute) {
+        clientCounts[previousRoute] = Math.max(0, clientCounts[previousRoute] - 1);
+      }
+      socketRoutes.set(socket.id, route);
+      clientCounts[route] = (clientCounts[route] || 0) + 1;
+      broadcastClientCounts();
+      console.log(`Cliente registrado en ruta: ${route}`);
+    }
+  });
 
   // Escuchar selección de imagen desde el admin (Carrusel)
   socket.on("select-image", (filename) => {
@@ -204,6 +228,12 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
+    const route = socketRoutes.get(socket.id);
+    if (route) {
+      clientCounts[route] = Math.max(0, clientCounts[route] - 1);
+      socketRoutes.delete(socket.id);
+      broadcastClientCounts();
+    }
     console.log("Un cliente se ha desconectado");
   });
 });
